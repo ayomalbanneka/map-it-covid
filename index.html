@@ -1,0 +1,614 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <title>The pandemic, country by country</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/maplibre-gl@4.7.1/dist/maplibre-gl.css">
+  <script src="https://cdn.jsdelivr.net/npm/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+  <script src="data.js"></script>
+  <script src="series.js"></script>
+  <style>
+    :root {
+      --bg: rgba(18, 20, 26, .9);
+      --line: rgba(255, 255, 255, .13);
+      --text: #eceff4;
+      --muted: #9aa3b2;
+      --accent: #ef8354;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    [hidden] {
+      display: none !important;
+    }
+
+    /* FIXED CSS: Ensures the map fills the screen properly without collapsing */
+    html, body {
+      height: 100%;
+      width: 100%;
+      margin: 0;
+    }
+
+    #map {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 0;
+    }
+
+    body {
+      font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif;
+      color: var(--text);
+      background: #111;
+    }
+
+    .card {
+      position: absolute;
+      background: var(--bg);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      backdrop-filter: blur(8px);
+      padding: 14px 16px;
+      z-index: 10; /* Ensures UI stays above the map */
+    }
+
+    .muted {
+      color: var(--muted);
+    }
+
+    h1 {
+      font-size: 18px;
+      line-height: 1.25;
+      margin: 0 0 6px;
+    }
+
+    h2 {
+      font-size: 17px;
+      margin: 0 24px 2px 0;
+    }
+
+    h3 {
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: .04em;
+      color: var(--muted);
+      margin: 14px 0 6px;
+      font-weight: 600;
+    }
+
+    p {
+      margin: 0 0 10px;
+    }
+
+    #intro {
+      top: 12px;
+      left: 12px;
+      width: 330px;
+    }
+
+    #search-wrap {
+      position: relative;
+      margin: 10px 0;
+    }
+
+    #search {
+      width: 100%;
+      padding: 9px 12px;
+      border-radius: 8px;
+      border: 1px solid var(--line);
+      background: #1b1f27;
+      color: var(--text);
+      font: inherit;
+    }
+
+    #search:focus-visible,
+    button:focus-visible,
+    select:focus-visible,
+    #slider:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+
+    #results {
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: 100%;
+      margin-top: 4px;
+      z-index: 5;
+      max-height: 260px;
+      overflow: auto;
+      background: #1b1f27;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+    }
+
+    #results button {
+      display: block;
+      width: 100%;
+      padding: 8px 12px;
+      text-align: left;
+      background: none;
+      border: 0;
+      color: var(--text);
+      font: inherit;
+      cursor: pointer;
+    }
+
+    #results button:hover {
+      background: rgba(255, 255, 255, .08);
+    }
+
+    #legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px 14px;
+      margin-top: 4px;
+    }
+
+    #legend span {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 13px;
+    }
+
+    .sw {
+      display: inline-block;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      flex: none;
+    }
+
+    .note {
+      font-size: 12px;
+      color: var(--muted);
+      margin: 10px 0 0;
+    }
+
+    #panel {
+      top: 12px;
+      right: 56px;
+      width: 320px;
+      max-height: calc(100% - 200px);
+      overflow: auto;
+    }
+
+    #close {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      width: 28px;
+      height: 28px;
+      border: 0;
+      border-radius: 6px;
+      background: none;
+      color: var(--muted);
+      font-size: 20px;
+      line-height: 1;
+      cursor: pointer;
+    }
+
+    #close:hover {
+      background: rgba(255, 255, 255, .08);
+      color: var(--text);
+    }
+
+    .big {
+      font-size: 28px;
+      font-weight: 650;
+      line-height: 1.15;
+    }
+
+    #p-miles {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+    }
+
+    #p-miles li {
+      display: flex;
+      gap: 8px;
+      align-items: baseline;
+      margin-bottom: 4px;
+    }
+
+    #p-chart {
+      width: 100%;
+      height: 90px;
+      display: block;
+      background: rgba(255, 255, 255, .04);
+      border-radius: 6px;
+    }
+
+    #bar {
+      left: 12px;
+      right: 12px;
+      bottom: 40px;
+      max-width: 780px;
+      margin: 0 auto;
+    }
+
+    #row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    #play {
+      min-width: 76px;
+      padding: 7px 12px;
+      border-radius: 8px;
+      border: 0;
+      background: var(--accent);
+      color: #1a1006;
+      font: inherit;
+      font-weight: 650;
+      cursor: pointer;
+    }
+
+    #date {
+      font-size: 20px;
+      font-weight: 650;
+      flex: 1;
+    }
+
+    #speed {
+      background: #1b1f27;
+      color: var(--text);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 6px 8px;
+      font: inherit;
+    }
+
+    #slider {
+      width: 100%;
+      margin: 10px 0 6px;
+      accent-color: var(--accent);
+    }
+
+    #stats {
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    @media (max-width: 720px) {
+      #intro {
+        width: calc(100% - 24px);
+      }
+
+      .intro-text {
+        display: none;
+      }
+
+      #panel {
+        top: auto;
+        bottom: 170px;
+        left: 12px;
+        right: 12px;
+        width: auto;
+        max-height: 36vh;
+      }
+    }
+
+    #reset {
+      padding: 6px 10px;
+      border-radius: 8px;
+      border: 1px solid var(--line);
+      background: #1b1f27;
+      color: var(--text);
+      font: inherit;
+      cursor: pointer;
+    }
+
+    @media (max-height: 560px) {
+      .intro-text, .note {
+        display: none;
+      }
+      #bar {
+        bottom: 8px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div id="map"></div>
+
+  <section id="intro" class="card">
+    <h1>The pandemic, country by country</h1>
+    <p class="intro-text muted">Each dot lights up as a country's reported COVID-19 cases pass 10, 100 and 1,000 per
+      100,000 people. Press play, click a dot, or search for a country.</p>
+    <div id="search-wrap">
+      <input id="search" type="search" placeholder="Search a country" aria-label="Search a country" autocomplete="off">
+      <div id="results" hidden></div>
+    </div>
+    <div id="legend" aria-label="Legend"></div>
+    <p class="note">Reported cases depend on how much testing a country did. Countries under 100,000 people are left
+      out. Data: Google COVID-19 Open Data, to September 2022.</p>
+  </section>
+
+  <aside id="panel" class="card" hidden>
+    <button id="close" aria-label="Close details">&times;</button>
+    <h2 id="p-name"></h2>
+    <div id="p-pop" class="muted"></div>
+    <h3>Reported cases so far</h3>
+    <div id="p-cases" class="big"></div>
+    <div id="p-sub" class="muted"></div>
+    <h3>Milestones</h3>
+    <ul id="p-miles"></ul>
+    <h3>New cases each week, per 100,000</h3>
+    <svg id="p-chart" viewBox="0 0 300 90" preserveAspectRatio="none" role="img"
+      aria-label="Weekly new reported cases"></svg>
+    <div id="p-peak" class="muted"></div>
+  </aside>
+
+  <section id="bar" class="card">
+    <div id="row">
+      <button id="play" type="button">Play</button>
+      <div id="date" aria-live="polite"></div>
+      <label class="muted" for="speed">Speed</label>
+      <select id="speed">
+        <option value="1">1x</option>
+        <option value="2">2x</option>
+        <option value="4">4x</option>
+      </select>
+      <button id="reset" type="button">Reset view</button>
+    </div>
+    <input id="slider" type="range" min="0" max="987" step="7" value="497" aria-label="Date">
+    <div id="stats"></div>
+  </section>
+
+  <script>
+    const START = Date.UTC(2020, 0, 1);
+    const COLORS = ["#6b7280", "#ffd166", "#ef8354", "#e5383b"];
+    const RADII = [2.5, 4.5, 7, 10];
+    const THRESHOLDS = [["d10", "10"], ["d100", "100"], ["d1000", "1,000"]];
+    const ALIASES = {
+      US: "usa america", GB: "uk britain england", AE: "uae emirates", CZ: "czechia",
+      MK: "north macedonia", CI: "ivory coast", MM: "burma", SZ: "eswatini swaziland"
+    };
+
+    const $ = id => document.getElementById(id);
+    const slider = $("slider");
+
+    if (typeof WAVES === "undefined" || typeof SERIES === "undefined") {
+      $("intro").textContent = "data.js or series.js did not load. Put both files in the same folder as this page.";
+      throw new Error("data files missing");
+    }
+
+    const BY_KEY = Object.fromEntries(WAVES.map(w => [w.k, w]));
+    const TOTALS = Object.fromEntries(THRESHOLDS.map(([f]) => [f, WAVES.filter(w => w[f]).length]));
+    const nf = new Intl.NumberFormat("en-US");
+    const compact = new Intl.NumberFormat("en", { notation: "compact", maximumFractionDigits: 1 });
+
+    function dateFor(i) { return new Date(START + i * 86400000).toISOString().slice(0, 10); }
+    function nice(day) {
+      return new Date(day + "T00:00:00Z").toLocaleDateString("en-GB",
+        { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
+    }
+    function ord(n) {
+      const s = ["th", "st", "nd", "rd"], v = n % 100;
+      return n + (s[(v - 20) % 10] || s[v] || s[0]);
+    }
+    function rankOf(w, f) { return 1 + WAVES.filter(o => o[f] && o[f] < w[f]).length; }
+
+    // Legend
+    [["Under 10", 0], ["10+", 1], ["100+", 2], ["1,000+", 3]].forEach(([text, s]) => {
+      const item = document.createElement("span");
+      const dot = document.createElement("i");
+      dot.className = "sw"; dot.style.background = COLORS[s];
+      item.append(dot, text);
+      $("legend").appendChild(item);
+    });
+    const legendNote = document.createElement("span");
+    legendNote.className = "muted";
+    legendNote.textContent = "cases per 100,000 people";
+    $("legend").appendChild(legendNote);
+
+    // FIXED MAP INITIALIZATION: Using a free dark style, removed constraints, safe zoom.
+    const map = new maplibregl.Map({
+      container: "map",
+      style: "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json",
+      center: [10, 22],
+      zoom: 2,
+      minZoom: 2,
+      maxZoom: 5
+    });
+
+    map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-right");
+    
+    // Force resize to fix WebGL NaN bugs
+    setTimeout(() => map.resize(), 100);
+    window.addEventListener("resize", () => map.resize());
+
+    function build(day) {
+      const counts = [0, 0, 0, 0];
+      const features = WAVES.map(w => {
+        const stage = w.d1000 && w.d1000 <= day ? 3 : w.d100 && w.d100 <= day ? 2 : w.d10 && w.d10 <= day ? 1 : 0;
+        counts[stage]++;
+        return {
+          type: "Feature", geometry: { type: "Point", coordinates: [w.lon, w.lat] },
+          properties: { k: w.k, stage }
+        };
+      });
+      return { fc: { type: "FeatureCollection", features }, counts };
+    }
+
+    let selectedKey = null;
+    let ready = false;
+
+    function weekly(w) {
+      const s = SERIES[w.k];
+      return s.map((v, j) => (j === 0 ? 0 : (v - s[j - 1]) / w.pop * 100000));
+    }
+
+    function chartMarkup(wk, i) {
+      const W = 300, H = 90, n = wk.length;
+      const max = Math.max(...wk, 1e-9);
+      const x = j => (j / (n - 1)) * W;
+      const y = v => H - 4 - (v / max) * (H - 12);
+      const line = wk.map((v, j) => `${j ? "L" : "M"}${x(j).toFixed(1)},${y(v).toFixed(1)}`).join("");
+      const mx = x(i / 7).toFixed(1);
+      return `<path d="${line}L${W},${H}L0,${H}Z" fill="rgba(239,131,84,.28)"/>` +
+        `<path d="${line}" fill="none" stroke="#ef8354" stroke-width="1.5" vector-effect="non-scaling-stroke"/>` +
+        `<line x1="${mx}" x2="${mx}" y1="0" y2="${H}" stroke="#fff" stroke-width="1" vector-effect="non-scaling-stroke"/>`;
+    }
+
+    function renderPanel() {
+      if (!selectedKey) return;
+      const w = BY_KEY[selectedKey];
+      const i = Number(slider.value);
+      const series = SERIES[w.k];
+      const cases = series[i / 7];
+      const hasData = series[series.length - 1] > 0;
+
+      $("p-name").textContent = w.n;
+      $("p-pop").textContent = `Population ${compact.format(w.pop)}`;
+      $("p-cases").textContent = hasData ? nf.format(cases) : "No data";
+      $("p-sub").textContent = hasData
+        ? `${nf.format(Math.round(cases / w.pop * 100000))} per 100,000 people, as of ${nice(dateFor(i))}`
+        : "This country reports no cases in the dataset.";
+
+      const list = $("p-miles");
+      list.replaceChildren();
+      THRESHOLDS.forEach(([f, name], n) => {
+        const li = document.createElement("li");
+        const dot = document.createElement("i");
+        dot.className = "sw"; dot.style.background = COLORS[n + 1];
+        const text = document.createElement("span");
+        text.textContent = w[f]
+          ? `${name} per 100k: ${nice(w[f])} (${ord(rankOf(w, f))} of ${TOTALS[f]})`
+          : `${name} per 100k: not reached`;
+        li.append(dot, text);
+        list.appendChild(li);
+      });
+
+      const wk = weekly(w);
+      $("p-chart").innerHTML = chartMarkup(wk, i);
+      const peak = Math.max(...wk);
+      $("p-peak").textContent = peak > 0
+        ? `Peak week: ${nf.format(Math.round(peak))} new cases per 100,000, week to ${nice(dateFor(wk.indexOf(peak) * 7))}.`
+        : "";
+    }
+
+    function selectCountry(k, fly) {
+      selectedKey = k;
+      if (ready) map.setFilter("ring", ["==", ["get", "k"], k]);
+      $("panel").hidden = false;
+      renderPanel();
+      if (fly) {
+        const w = BY_KEY[k];
+        map.flyTo({ center: [w.lon, w.lat], zoom: Math.max(map.getZoom(), 3.2), speed: 0.9 });
+      }
+    }
+
+    function show(i) {
+      if (!ready) return;
+      const day = dateFor(i);
+      const { fc, counts } = build(day);
+      map.getSource("countries").setData(fc);
+      $("date").textContent = nice(day);
+      $("stats").textContent = `${counts[1] + counts[2] + counts[3]} countries past 10 per 100k, ` +
+        `${counts[2] + counts[3]} past 100, ${counts[3]} past 1,000`;
+      renderPanel();
+    }
+
+    function addDots() {
+      map.addSource("countries", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+      map.addLayer({
+        id: "dots", type: "circle", source: "countries",
+        paint: {
+          "circle-color": ["match", ["get", "stage"], 1, COLORS[1], 2, COLORS[2], 3, COLORS[3], COLORS[0]],
+          "circle-radius": ["match", ["get", "stage"], 1, RADII[1], 2, RADII[2], 3, RADII[3], RADII[0]],
+          "circle-opacity": ["match", ["get", "stage"], 0, 0.6, 0.85],
+        },
+      });
+      map.addLayer({
+        id: "ring", type: "circle", source: "countries", filter: ["==", ["get", "k"], ""],
+        paint: { "circle-radius": 14, "circle-color": "rgba(0,0,0,0)", "circle-stroke-color": "#ffffff", "circle-stroke-width": 2 },
+      });
+      ready = true;
+      show(Number(slider.value));
+    };
+
+    if (map.isStyleLoaded()) {
+      addDots();
+    } else {
+      map.once("style.load", addDots);
+    }
+
+    map.on("click", "dots", e => selectCountry(e.features[0].properties.k, false));
+    map.on("mouseenter", "dots", () => { map.getCanvas().style.cursor = "pointer"; });
+    map.on("mouseleave", "dots", () => { map.getCanvas().style.cursor = ""; });
+
+    $("close").addEventListener("click", () => {
+      selectedKey = null;
+      $("panel").hidden = true;
+      if (ready) map.setFilter("ring", ["==", ["get", "k"], ""]);
+    });
+
+    $("reset").addEventListener("click", () => {
+      map.flyTo({ center: [10, 22], zoom: 2 });
+    });
+
+    // Search
+    const searchBox = $("search");
+    const results = $("results");
+    function runSearch() {
+      const q = searchBox.value.trim().toLowerCase();
+      results.replaceChildren();
+      if (!q) { results.hidden = true; return; }
+      const hits = WAVES
+        .filter(w => w.n.toLowerCase().includes(q) || w.k.toLowerCase() === q || (ALIASES[w.k] || "").includes(q))
+        .sort((a, b) => b.n.toLowerCase().startsWith(q) - a.n.toLowerCase().startsWith(q))
+        .slice(0, 8);
+      hits.forEach(w => {
+        const b = document.createElement("button");
+        b.type = "button";
+        b.textContent = w.n;
+        b.addEventListener("click", () => {
+          selectCountry(w.k, true);
+          searchBox.value = "";
+          results.hidden = true;
+        });
+        results.appendChild(b);
+      });
+      results.hidden = hits.length === 0;
+    }
+    searchBox.addEventListener("input", runSearch);
+    searchBox.addEventListener("keydown", e => {
+      if (e.key === "Enter" && results.firstChild) results.firstChild.click();
+      if (e.key === "Escape") { searchBox.value = ""; results.hidden = true; }
+    });
+    document.addEventListener("click", e => { if (!e.target.closest("#search-wrap")) results.hidden = true; });
+
+    // Timeline
+    let timer = null;
+    function setPlaying(on) {
+      clearInterval(timer);
+      timer = null;
+      $("play").textContent = on ? "Pause" : "Play";
+      if (!on) return;
+      if (Number(slider.value) >= Number(slider.max)) slider.value = 0;
+      timer = setInterval(() => {
+        const next = Number(slider.value) + 7;
+        if (next > Number(slider.max)) { setPlaying(false); return; }
+        slider.value = next;
+        show(next);
+      }, 160 / Number($("speed").value));
+    }
+    $("play").addEventListener("click", () => setPlaying(!timer));
+    $("speed").addEventListener("change", () => { if (timer) setPlaying(true); });
+    slider.addEventListener("input", () => show(Number(slider.value)));
+  </script>
+</body>
+
+</html>
