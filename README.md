@@ -5,7 +5,7 @@ An interactive map that shows **when each country's reported COVID-19 cases pass
 Built for the AWS Builder Center **Weekend Challenge: Map it**.
 
 - **Live map:** https://main.dt9qco707eorw.amplifyapp.com/
-- **Demo video (under 3 minutes):** https://youtu.be/uLY9j2tvj6U
+- **Demo video (under 3 minutes):** https://youtu.be/L72Zzxd-DjE
 - **Builder Center post:** https://builder.aws.com/project/3LUY4zakuybjmsLSmtbuEMfgGHZ/weekend-challenge-map-it-the-pandemic-country-by-country
 
 ## What it shows
