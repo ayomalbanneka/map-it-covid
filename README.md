@@ -29,7 +29,10 @@ Google COVID-19 Open Data (public CSV tables)
    data.js  +  series.js   (static files, about 190 KB in total)
         |
         v
-   index.html  ->  MapLibre GL JS 4.7.1  ->  Amazon Location Service basemap
+   index.html  (MapLibre GL JS 4.7.1, loaded from the jsDelivr CDN, draws the map)
+        |
+        v   basemap style and tiles, requested with an API key
+   https://maps.geo.${REGION}.amazonaws.com  (Amazon Location Service)
         |
         v
    AWS Amplify Hosting (public HTTPS link)
@@ -39,11 +42,17 @@ Google COVID-19 Open Data (public CSV tables)
 
 | Service | What it does here |
 | --- | --- |
-| Amazon Location Service | Serves the vector basemap (Standard style, Dark colour scheme) to MapLibre through an API key restricted to the live site's address. |
+| Amazon Location Service | Serves the vector basemap (Standard style, Dark colour scheme) from `maps.geo.${REGION}.amazonaws.com` through an API key restricted to the live site's address. |
 | AWS CloudShell | Runs the Python data pipeline that turns the raw Google tables into the two small data files. |
 | AWS Amplify Hosting | Hosts the static site over HTTPS. |
 
-The country search is client-side over the data in `data.js`. It does not call a place-search API.
+The page requests the basemap directly from the Amazon Location Service endpoint, using the style URL:
+
+```
+https://maps.geo.${REGION}.amazonaws.com/v2/styles/Standard/descriptor?key=${API_KEY}&color-scheme=Dark
+```
+
+The country search is client-side over the data in `data.js`. It does not call a place-search API. The only third-party script the page loads is MapLibre GL JS 4.7.1 from the jsDelivr CDN; everything else is in the repository.
 
 ## Data
 
@@ -69,6 +78,7 @@ Reported cases depend on how much testing a country did, and countries report in
    const API_KEY = "YOUR_AMAZON_LOCATION_API_KEY";
    const REGION = "ap-southeast-1"; // must match the region of your key
    ```
+   The page uses them to build the basemap URL `https://maps.geo.${REGION}.amazonaws.com/v2/styles/Standard/descriptor?key=${API_KEY}&color-scheme=Dark`.
 3. Restrict the key to the addresses you use (for example `http://127.0.0.1:5500/*` for local testing and your deployed domain).
 4. Serve the folder with any static server (for example the VS Code Live Server extension) and open it. Opening `index.html` straight from disk does not work, because the key is restricted by referrer.
 
